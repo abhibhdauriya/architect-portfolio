@@ -113,4 +113,4 @@ def init_db():
     
     existing_email = execute_query("SELECT value FROM settings WHERE key = 'admin_email'")
     if not existing_email or len(existing_email) == 0:
-        execute_query("INSERT INTO settings (key, value) VALUES ('admin_email', 'admin@example.com')")
+        execute_query("INSERT INTO settings (key, value) VALUES ('admin_email', 'SINGHA36161@GMAIL.COM')")
