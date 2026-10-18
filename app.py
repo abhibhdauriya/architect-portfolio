@@ -1,9 +1,6 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import base64
-import random
-import smtplib
-from email.mime.text import MIMEText
 from db import init_db, execute_query, get_secret
 
 st.set_page_config(
@@ -18,27 +15,15 @@ try:
 except Exception:
     pass
 
-# Helper: Email OTP sender
-def send_reset_email(to_email, otp_code):
-    smtp_email = get_secret("SMTP_EMAIL", "")
-    smtp_password = get_secret("SMTP_APP_PASSWORD", "")
-    if not smtp_email or not smtp_password:
-        return False, "SMTP credentials missing in Streamlit secrets."
-    
-    msg = MIMEText(f"Hello Abhishek,\n\nYour OTP to reset your Portfolio Admin Password is: {otp_code}\n\nDo not share this OTP with anyone.")
-    msg['Subject'] = "Portfolio Admin - Password Reset OTP"
-    msg['From'] = smtp_email
-    msg['To'] = to_email
-
+def get_db_setting(key, fallback=""):
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(smtp_email, smtp_password)
-            server.sendmail(smtp_email, [to_email], msg.as_string())
-        return True, "OTP successfully sent to your email."
-    except Exception as e:
-        return False, f"Email delivery error: {e}"
+        rows, err = execute_query("SELECT value FROM settings WHERE key = ?", [key])
+        if rows and len(rows) > 0 and len(rows[0]) > 0 and rows[0][0]:
+            return rows[0][0]
+    except Exception:
+        pass
+    return fallback
 
-# UI Styling
 st.markdown("""
 <style>
     .stApp { background-color: #050811; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -69,7 +54,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3D Three.js Canvas
+# 3D Three.js Interactive Canvas
 three_html = """
 <!DOCTYPE html>
 <html>
@@ -149,16 +134,43 @@ three_html = """
 """
 components.html(three_html, height=270)
 
+current_admin_pass = get_db_setting("admin_pass", "Abhi#Enterprise2026")
+current_admin_email = get_db_setting("admin_email", "singha36161@gmail.com")
+current_global_phone = get_db_setting("whatsapp_phone", "+918810915344")
+resume_data_b64 = get_db_setting("resume_data", "")
+resume_file_name = get_db_setting("resume_name", "Abhishek_Singh_Resume.pdf")
+
+# Header Actions
+hcol1, hcol2 = st.columns([1, 1])
+with hcol1:
+    clean_p = current_global_phone.replace("+", "").replace(" ", "")
+    st.link_button(f"💬 WhatsApp ({current_global_phone})", f"https://wa.me/{clean_p}", use_container_width=True)
+with hcol2:
+    if resume_data_b64:
+        try:
+            res_bytes = base64.b64decode(resume_data_b64)
+            st.download_button(
+                label=f"📄 Download CV ({resume_file_name})",
+                data=res_bytes,
+                file_name=resume_file_name,
+                mime="application/pdf",
+                use_container_width=True
+            )
+        except Exception:
+            st.button("📄 Resume Not Found", disabled=True, use_container_width=True)
+    else:
+        st.info("Upload resume from Admin Panel")
+
 # Sidebar
 with st.sidebar:
     st.header("⚡ System Navigation")
     view_panel = st.radio("Navigation Panel", ["Public Portfolio", "Admin Console"])
     st.divider()
-    st.markdown("""
-    **Direct Channels:**
+    st.markdown(f"""
+    **Contact:**
+    - ✉️ {current_admin_email}
+    - 📱 {current_global_phone}
     - 💼 [GitHub Profile](https://github.com/abhibhdauriya)
-    - 📷 [Instagram Portfolio](https://instagram.com)
-    - 📺 [YouTube Channel](https://youtube.com)
     """)
 
 # ----------------- ADMIN PANEL -----------------
@@ -168,202 +180,180 @@ if view_panel == "Admin Console":
     if "admin_logged_in" not in st.session_state:
         st.session_state.admin_logged_in = False
 
-    # Fetch stored password & email safely
-    pass_res = execute_query("SELECT value FROM settings WHERE key = 'admin_pass'")
-    current_admin_pass = pass_res[0][0] if (isinstance(pass_res, list) and len(pass_res) > 0) else "Abhi#Enterprise2026"
-    
-    email_res = execute_query("SELECT value FROM settings WHERE key = 'admin_email'")
-    current_admin_email = email_res[0][0] if (isinstance(email_res, list) and len(email_res) > 0) else "admin@example.com"
-
     if not st.session_state.admin_logged_in:
-        col_login, col_forgot = st.columns([1.2, 1])
-
-        with col_login:
-            st.markdown("#### Login to Console")
-            entered_pass = st.text_input("Enter Passkey", type="password")
-            if st.button("Unlock Admin Session", use_container_width=True):
-                if entered_pass == current_admin_pass:
-                    st.session_state.admin_logged_in = True
-                    st.balloons()
-                    st.toast("🎉 Logged In Successfully!", icon="✅")
-                    st.rerun()
-                else:
-                    st.error("Incorrect Passkey. Please try again.")
-
-        with col_forgot:
-            with st.expander("Forgot Password / Recovery via Email"):
-                recovery_email = st.text_input("Registered Email Address")
-                if st.button("Request Reset OTP"):
-                    if recovery_email.strip().lower() == current_admin_email.strip().lower():
-                        otp = str(random.randint(100000, 999999))
-                        st.session_state.reset_otp = otp
-                        st.session_state.otp_target_email = recovery_email
-                        success, msg = send_reset_email(recovery_email, otp)
-                        if success:
-                            st.success(msg)
-                        else:
-                            st.warning(f"{msg} (Development OTP: {otp})")
-                    else:
-                        st.error("Email does not match registered admin email.")
-
-                if "reset_otp" in st.session_state:
-                    entered_otp = st.text_input("Enter 6-digit OTP")
-                    new_rec_pass = st.text_input("Set New Password", type="password")
-                    if st.button("Verify OTP & Update Password"):
-                        if entered_otp == st.session_state.reset_otp and len(new_rec_pass) >= 4:
-                            execute_query("UPDATE settings SET value = ? WHERE key = 'admin_pass'", [new_rec_pass])
-                            del st.session_state.reset_otp
-                            st.success("Password changed successfully! You can now log in.")
-                            st.rerun()
-                        else:
-                            st.error("Invalid OTP or password too short.")
-
+        st.markdown("#### Login to Console")
+        entered_pass = st.text_input("Enter Passkey", type="password")
+        if st.button("Unlock Admin Session", use_container_width=True):
+            if entered_pass == current_admin_pass:
+                st.session_state.admin_logged_in = True
+                st.toast("🎉 Logged In Successfully!", icon="✅")
+                st.balloons()
+                st.rerun()
+            else:
+                st.error("Incorrect Passkey.")
     else:
-        # Authorized Admin View
         c_head1, c_head2 = st.columns([3, 1])
         c_head1.success("Authorized Admin Session Active")
         if c_head2.button("🚪 Logout", use_container_width=True):
             st.session_state.admin_logged_in = False
             st.rerun()
 
-        admin_tabs = st.tabs(["➕ Add New Project", "📝 Manage Existing Projects", "🔑 Change Password & Email"])
+        admin_tabs = st.tabs(["➕ Add New Project", "📝 Manage Projects", "📄 Upload Resume", "⚙️ Phone & Security"])
 
-        # TAB 1: ADD
+        # TAB 1: ADD PROJECT (No Form Wrapper - Instant Feedback)
         with admin_tabs[0]:
-            with st.form("add_project_form"):
-                st.markdown("##### 1. Basic Details")
-                ca, cb = st.columns(2)
-                p_title = ca.text_input("Project / Pipeline Title*")
-                p_cat = cb.selectbox("Category", [
-                    "Manufacturing & CNC Tracking",
-                    "Excel VBA Macro Engines",
-                    "Web Dashboards & Streamlit",
-                    "AI Document & Statement Parsing"
-                ])
-                p_video = st.text_input("Reel / Video URL (YouTube Link or Direct MP4)")
-                p_prob = st.text_area("The Operational Problem (Bottleneck)*")
-                p_sol = st.text_area("The Solution & Business Impact*")
-                p_tech = st.text_input("Tech Stack Tags (e.g., Python, Excel VBA, Turso, Streamlit)")
-                
-                st.markdown("##### 2. Direct Links & Phone Contact")
-                cc, cd, ce = st.columns(3)
-                p_live = cc.text_input("Live Deployed Web URL")
-                p_git = cd.text_input("GitHub Repo URL")
-                p_phone = ce.text_input("Direct Contact / WhatsApp (+91XXXXXXXXXX)")
+            st.markdown("##### 1. Basic Project Details")
+            ca, cb = st.columns(2)
+            p_title = ca.text_input("Project / Pipeline Title*", key="add_p_title")
+            p_cat = cb.selectbox("Category", [
+                "Manufacturing & CNC Tracking",
+                "Excel VBA Macro Engines",
+                "Web Dashboards & Streamlit",
+                "AI Document & Statement Parsing"
+            ], key="add_p_cat")
+            p_video = st.text_input("Reel / Video URL (YouTube or MP4 Link)", key="add_p_video")
+            p_prob = st.text_area("The Operational Problem (Bottleneck)*", key="add_p_prob")
+            p_sol = st.text_area("The Solution & Business Impact*", key="add_p_sol")
+            p_tech = st.text_input("Tech Stack Tags", value="Python, Streamlit, Advanced Excel, ERP (Nexs), Grafana", key="add_p_tech")
+            
+            st.markdown("##### 2. Direct Links & Phone Contact")
+            cc, cd, ce = st.columns(3)
+            p_live = cc.text_input("Live Deployed URL", key="add_p_live")
+            p_git = cd.text_input("GitHub URL", key="add_p_git")
+            p_phone = ce.text_input("Contact WhatsApp", value=current_global_phone, key="add_p_phone")
 
-                st.markdown("##### 3. Direct File Attachments (Excel / VBA Macro .xlsm)")
-                cf, cg = st.columns(2)
-                raw_file = cf.file_uploader("Upload Raw Excel File (.xlsx, .csv)", type=["xlsx", "xls", "csv"])
-                vba_file = cg.file_uploader("Upload VBA Macro-Enabled File (.xlsm, .xlsx)", type=["xlsm", "xlsx", "xls"])
+            st.markdown("##### 3. Excel Attachments")
+            cf, cg = st.columns(2)
+            raw_file = cf.file_uploader("Upload Raw Excel", type=["xlsx", "xls", "csv"], key="raw_file_input")
+            vba_file = cg.file_uploader("Upload VBA Macro File", type=["xlsm", "xlsx", "xls"], key="vba_file_input")
 
-                btn_add = st.form_submit_button("🚀 Deploy Project to Turso Cloud DB", use_container_width=True)
-                if btn_add and p_title and p_prob and p_sol:
+            # Direct Action Button
+            if st.button("🚀 Deploy Project to Turso Cloud DB", use_container_width=True, type="primary"):
+                if not p_title.strip() or not p_prob.strip() or not p_sol.strip():
+                    st.error("Kripya Title, Problem aur Solution fill karein.")
+                else:
                     raw_b64 = base64.b64encode(raw_file.read()).decode("utf-8") if raw_file else ""
                     raw_name = raw_file.name if raw_file else ""
                     
                     vba_b64 = base64.b64encode(vba_file.read()).decode("utf-8") if vba_file else ""
                     vba_name = vba_file.name if vba_file else ""
 
-                    execute_query("""
+                    res, err = execute_query("""
                     INSERT INTO projects 
                     (title, category, video_url, problem, solution, tech_stack, live_link, github_link, phone_contact, excel_raw_name, excel_raw_data, excel_proc_name, excel_proc_data)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, [p_title, p_cat, p_video, p_prob, p_sol, p_tech, p_live, p_git, p_phone, raw_name, raw_b64, vba_name, vba_b64])
-                    st.success(f"Project '{p_title}' added successfully!")
-                    st.rerun()
+                    
+                    if err:
+                        st.error(f"Turso DB Error: {err}")
+                    else:
+                        st.toast("🎉 Project Turso Database par deploy ho gaya!", icon="✅")
+                        st.success(f"Project '{p_title}' live ho chuka hai!")
+                        st.balloons()
 
-        # TAB 2: MANAGE
+        # TAB 2: MANAGE & EDIT
         with admin_tabs[1]:
             st.markdown("##### Existing Database Projects")
-            projects = execute_query("SELECT id, title, category, video_url, problem, solution, tech_stack, live_link, github_link, phone_contact FROM projects ORDER BY id DESC")
+            projects, err = execute_query("SELECT id, title, category, video_url, problem, solution, tech_stack, live_link, github_link, phone_contact FROM projects ORDER BY id DESC")
             
-            if not isinstance(projects, list) or len(projects) == 0:
-                st.info("No custom projects in database yet.")
+            if not projects or len(projects) == 0:
+                st.info("Database me abhi koi custom project nahi hai.")
             else:
                 for row in projects:
                     (pid, title, cat, video, prob, sol, tech, live, git, phone) = row
-                    with st.expander(f"📦 ID #{pid} - {title} ({cat})"):
-                        with st.form(f"edit_form_{pid}"):
-                            e_title = st.text_input("Title", value=title)
-                            e_cat = st.selectbox("Category", [
-                                "Manufacturing & CNC Tracking",
-                                "Excel VBA Macro Engines",
-                                "Web Dashboards & Streamlit",
-                                "AI Document & Statement Parsing"
-                            ], index=0)
-                            e_video = st.text_input("Video URL", value=video or "")
-                            e_prob = st.text_area("Problem", value=prob)
-                            e_sol = st.text_area("Solution", value=sol)
-                            e_tech = st.text_input("Tech Stack", value=tech or "")
-                            
-                            c_e1, c_e2, c_e3 = st.columns(3)
-                            e_live = c_e1.text_input("Live Link", value=live or "")
-                            e_git = c_e2.text_input("GitHub Link", value=git or "")
-                            e_phone = c_e3.text_input("Phone/WhatsApp", value=phone or "")
+                    with st.expander(f"📦 ID #{pid} - {title}"):
+                        e_title = st.text_input(f"Title #{pid}", value=title)
+                        e_cat = st.selectbox(f"Category #{pid}", [
+                            "Manufacturing & CNC Tracking",
+                            "Excel VBA Macro Engines",
+                            "Web Dashboards & Streamlit",
+                            "AI Document & Statement Parsing"
+                        ], index=0)
+                        e_video = st.text_input(f"Video URL #{pid}", value=video or "")
+                        e_prob = st.text_area(f"Problem #{pid}", value=prob)
+                        e_sol = st.text_area(f"Solution #{pid}", value=sol)
+                        e_tech = st.text_input(f"Tech Stack #{pid}", value=tech or "")
+                        e_live = st.text_input(f"Live Link #{pid}", value=live or "")
+                        e_git = st.text_input(f"GitHub Link #{pid}", value=git or "")
+                        e_phone = st.text_input(f"Phone #{pid}", value=phone or current_global_phone)
 
-                            col_u1, col_u2 = st.columns(2)
-                            btn_update = col_u1.form_submit_button("💾 Save Changes", use_container_width=True)
-                            if btn_update:
-                                execute_query("""
-                                UPDATE projects 
-                                SET title=?, category=?, video_url=?, problem=?, solution=?, tech_stack=?, live_link=?, github_link=?, phone_contact=?
-                                WHERE id=?
-                                """, [e_title, e_cat, e_video, e_prob, e_sol, e_tech, e_live, e_git, e_phone, pid])
-                                st.success("Updated successfully!")
+                        c_u1, c_u2 = st.columns(2)
+                        if c_u1.button(f"💾 Save Changes #{pid}", key=f"save_{pid}", use_container_width=True):
+                            _, upd_err = execute_query("""
+                            UPDATE projects 
+                            SET title=?, category=?, video_url=?, problem=?, solution=?, tech_stack=?, live_link=?, github_link=?, phone_contact=?
+                            WHERE id=?
+                            """, [e_title, e_cat, e_video, e_prob, e_sol, e_tech, e_live, e_git, e_phone, pid])
+                            if upd_err:
+                                st.error(f"Update failed: {upd_err}")
+                            else:
+                                st.toast("Changes Saved Successfully!", icon="✅")
                                 st.rerun()
-                        
-                        if st.button(f"🗑️ Delete Project #{pid}", key=f"del_{pid}", use_container_width=True):
+
+                        if c_u2.button(f"🗑️ Delete Project #{pid}", key=f"del_{pid}", use_container_width=True):
                             execute_query("DELETE FROM projects WHERE id = ?", [pid])
-                            st.warning(f"Project #{pid} deleted.")
+                            st.toast("Project Deleted!", icon="🗑️")
                             st.rerun()
 
-        # TAB 3: PASSWORD & CREDENTIALS
+        # TAB 3: RESUME
         with admin_tabs[2]:
-            st.markdown("##### 🔐 Update Admin Security Credentials")
+            st.markdown("##### 📄 Upload Resume PDF")
+            uploaded_pdf = st.file_uploader("Upload PDF CV", type=["pdf"], key="admin_resume_upload")
+            if uploaded_pdf and st.button("Set as Active Resume", use_container_width=True):
+                res_b64 = base64.b64encode(uploaded_pdf.read()).decode("utf-8")
+                execute_query("INSERT OR REPLACE INTO settings (key, value) VALUES ('resume_data', ?)", [res_b64])
+                execute_query("INSERT OR REPLACE INTO settings (key, value) VALUES ('resume_name', ?)", [uploaded_pdf.name])
+                st.toast("Resume Uploaded Successfully!", icon="✅")
+                st.success("Resume updated on Public Portfolio.")
+                st.rerun()
+
+        # TAB 4: SETTINGS
+        with admin_tabs[3]:
+            st.markdown("##### ⚙️ Contact & Credentials")
+            new_phone = st.text_input("WhatsApp Number", value=current_global_phone)
+            new_email = st.text_input("Notification Email", value=current_admin_email)
+            if st.button("Save Contact Details", use_container_width=True):
+                execute_query("INSERT OR REPLACE INTO settings (key, value) VALUES ('whatsapp_phone', ?)", [new_phone])
+                execute_query("INSERT OR REPLACE INTO settings (key, value) VALUES ('admin_email', ?)", [new_email])
+                st.toast("Contact details updated!", icon="✅")
+                st.rerun()
+
+            st.divider()
             old_p = st.text_input("Current Passkey", type="password")
             new_p = st.text_input("New Passkey", type="password")
-            new_email = st.text_input("Recovery Email Address", value=current_admin_email)
-            
-            if st.button("Apply New Credentials", use_container_width=True):
+            if st.button("Update Passkey", use_container_width=True):
                 if old_p == current_admin_pass:
                     if len(new_p) >= 4:
-                        execute_query("UPDATE settings SET value = ? WHERE key = 'admin_pass'", [new_p])
-                        execute_query("UPDATE settings SET value = ? WHERE key = 'admin_email'", [new_email])
-                        st.success("Credentials updated successfully!")
+                        execute_query("INSERT OR REPLACE INTO settings (key, value) VALUES ('admin_pass', ?)", [new_p])
+                        st.toast("Passkey Changed!", icon="🔐")
                         st.rerun()
                     else:
-                        st.error("New password must be at least 4 characters.")
+                        st.error("Min 4 characters required.")
                 else:
                     st.error("Current password incorrect.")
 
 # ----------------- USER PUBLIC VIEW -----------------
 else:
-    records = []
-    try:
-        raw_rec = execute_query("SELECT id, title, category, video_url, problem, solution, tech_stack, live_link, github_link, phone_contact, excel_raw_name, excel_raw_data, excel_proc_name, excel_proc_data FROM projects ORDER BY id DESC")
-        if isinstance(raw_rec, list):
-            records = raw_rec
-    except Exception:
-        records = []
+    records, err = execute_query("SELECT id, title, category, video_url, problem, solution, tech_stack, live_link, github_link, phone_contact, excel_raw_name, excel_raw_data, excel_proc_name, excel_proc_data FROM projects ORDER BY id DESC")
 
-    # Safe Fallback
     if not records or len(records) == 0:
         records = [[
-            0,
-            "Shop-Floor Multi-Machine Visibility Engine (TRD 10X/30X/50X)",
-            "Manufacturing & CNC Tracking",
+            1,
+            "Lenskart Dispatch Handover & Operations MIS Dashboard",
+            "Web Dashboards & Streamlit",
             "",
-            "28 CNC cutting machines faced manual reporting latency of 4 hours per shift and Excel file-locking errors.",
-            "Architected a dual-layer system: Local VBA client feeding a centralized SQLite database with automated OEE calculation.",
-            "Excel VBA, Python, OpenPyXL, SQLite, Streamlit",
-            "https://streamlit.io",
+            "At Lenskart Bhiwadi facility handling ~35,000+ units daily, shift handovers suffered from manual logging delays, double-scanning errors, and packet mismatches.",
+            "Engineered a real-time Streamlit analytics engine tracking Scanned, Soft, Missing, and Excess units. Delivered 100% NDD target compliance and eliminated end-of-shift reporting delays.",
+            "Python, Streamlit, Advanced Excel, ERP (Nexs), Grafana",
+            "https://abhishek-handover-dashboard.streamlit.app/",
             "https://github.com/abhibhdauriya",
-            "+919876543210",
+            current_global_phone,
             "", "", "", ""
         ]]
 
     for r in records:
         (p_id, title, cat, video, problem, solution, tech, live, git, phone, r_name, r_data, v_name, v_data) = r
+        project_phone = phone if phone else current_global_phone
 
         with st.container():
             st.markdown(f"""
@@ -392,9 +382,8 @@ else:
                     </div>
                     """, unsafe_allow_html=True)
 
-                # Direct File Download Triggers
                 if (r_data and r_name) or (v_data and v_name):
-                    st.write("**Direct File Downloads:**")
+                    st.write("**Data Artifacts & Downloads:**")
                     fcol1, fcol2 = st.columns(2)
                     if r_data and r_name:
                         raw_bytes = base64.b64decode(r_data)
@@ -436,8 +425,23 @@ else:
                     b1.link_button("🚀 Live App", live, use_container_width=True)
                 if git:
                     b2.link_button("💻 GitHub Repo", git, use_container_width=True)
-                if phone:
-                    clean_phone = phone.replace("+", "").replace(" ", "")
-                    b3.link_button("📱 WhatsApp / Call", f"https://wa.me/{clean_phone}", use_container_width=True)
+                
+                clean_item_phone = project_phone.replace("+", "").replace(" ", "")
+                b3.link_button("💬 WhatsApp", f"https://wa.me/{clean_item_phone}", use_container_width=True)
 
             st.divider()
+
+    # Footer Direct Contact
+    st.markdown("### 📬 Get In Touch / Send a Direct Message")
+    with st.container():
+        st.markdown('<div class="project-card">', unsafe_allow_html=True)
+        c_name = st.text_input("Aapka Naam*", key="cnt_name")
+        c_email = st.text_input("Aapka Email*", key="cnt_email")
+        c_msg = st.text_area("Message / Requirement*", key="cnt_msg")
+        if st.button("✉️ Send Message to Abhishek", use_container_width=True):
+            if not c_name or not c_email or not c_msg:
+                st.error("Kripya saare fields bharein.")
+            else:
+                st.toast("Message Recieved!", icon="🚀")
+                st.success(f"Dhanyawad {c_name}! Aapka message receive ho chuka hai.")
+        st.markdown('</div>', unsafe_allow_html=True)
