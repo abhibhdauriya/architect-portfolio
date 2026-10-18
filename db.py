@@ -70,12 +70,11 @@ def execute_query(sql: str, params: list = None):
                 for row in res["rows"]:
                     rows.append([col.get("value") for col in row])
                 return rows
-        return True
+        return []
     except Exception as err:
         return []
 
 def init_db():
-    # Projects table with direct file payload and contact
     schema_projects = """
     CREATE TABLE IF NOT EXISTS projects (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,7 +96,6 @@ def init_db():
     """
     execute_query(schema_projects)
 
-    # Settings table for Dynamic Password & Admin Email
     schema_settings = """
     CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
@@ -106,11 +104,11 @@ def init_db():
     """
     execute_query(schema_settings)
 
-    # Initialize default admin credentials if not set
+    # Defaults
     existing_pass = execute_query("SELECT value FROM settings WHERE key = 'admin_pass'")
-    if not existing_pass or len(existing_pass) == 0:
-        execute_query("INSERT INTO settings (key, value) VALUES ('admin_pass', 'Abhi#Enterprise2026')")
+    if not isinstance(existing_pass, list) or len(existing_pass) == 0:
+        execute_query("INSERT OR REPLACE INTO settings (key, value) VALUES ('admin_pass', 'Abhi#Enterprise2026')")
     
     existing_email = execute_query("SELECT value FROM settings WHERE key = 'admin_email'")
-    if not existing_email or len(existing_email) == 0:
-        execute_query("INSERT INTO settings (key, value) VALUES ('admin_email', 'SINGHA36161@GMAIL.COM')")
+    if not isinstance(existing_email, list) or len(existing_email) == 0:
+        execute_query("INSERT OR REPLACE INTO settings (key, value) VALUES ('admin_email', 'SINGHA36161@GMAIL.COM')")
