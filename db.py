@@ -75,6 +75,7 @@ def execute_query(sql: str, params: list = None):
         return []
 
 def init_db():
+    # Projects table
     schema_projects = """
     CREATE TABLE IF NOT EXISTS projects (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -96,6 +97,7 @@ def init_db():
     """
     execute_query(schema_projects)
 
+    # Global Settings table for Phone, Email, Password, Resume
     schema_settings = """
     CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
@@ -104,11 +106,7 @@ def init_db():
     """
     execute_query(schema_settings)
 
-    # Defaults
-    existing_pass = execute_query("SELECT value FROM settings WHERE key = 'admin_pass'")
-    if not isinstance(existing_pass, list) or len(existing_pass) == 0:
-        execute_query("INSERT OR REPLACE INTO settings (key, value) VALUES ('admin_pass', 'Abhi#Enterprise2026')")
-    
-    existing_email = execute_query("SELECT value FROM settings WHERE key = 'admin_email'")
-    if not isinstance(existing_email, list) or len(existing_email) == 0:
-        execute_query("INSERT OR REPLACE INTO settings (key, value) VALUES ('admin_email', 'SINGHA36161@GMAIL.COM')")
+    # Initialize defaults
+    execute_query("INSERT OR IGNORE INTO settings (key, value) VALUES ('admin_pass', 'Abhi#Enterprise2026')")
+    execute_query("INSERT OR IGNORE INTO settings (key, value) VALUES ('admin_email', 'singha36161@gmail.com')")
+    execute_query("INSERT OR IGNORE INTO settings (key, value) VALUES ('whatsapp_phone', '+918810915344')")
