@@ -1,10 +1,21 @@
 import streamlit as st
 import requests
 import json
+import os
 
-TURSO_DB_URL = st.secrets.get("TURSO_DB_URL", "https://turso-db-create-architect-portfolio-abhibhdauriya.aws-ap-south-1.turso.io")[cite: 1]
-TURSO_AUTH_TOKEN = st.secrets.get("TURSO_AUTH_TOKEN", "")
+# Safe environment fallback taaki agar secrets khali bhi hon toh app kabhi crash na ho
+def get_secret(key, default_val=""):
+    try:
+        if hasattr(st, "secrets") and key in st.secrets:
+            return st.secrets[key]
+    except Exception:
+        pass
+    return os.getenv(key, default_val)
 
+TURSO_DB_URL = get_secret("TURSO_DB_URL", "https://turso-db-create-architect-portfolio-abhibhdauriya.aws-ap-south-1.turso.io")
+TURSO_AUTH_TOKEN = get_secret("TURSO_AUTH_TOKEN", "")
+
+# Convert libsql protocol to https for safe execution
 if TURSO_DB_URL.startswith("libsql://"):
     TURSO_DB_URL = TURSO_DB_URL.replace("libsql://", "https://")
 
@@ -42,18 +53,27 @@ def execute_query(sql: str, params: list = None):
     }
 
     try:
-        response = requests.post(f"{TURSO_DB_URL}/v2/pipeline", headers=HEADERS, data=json.dumps(payload), timeout=8)
+        if not TURSO_AUTH_TOKEN:
+            return []
+            
+        response = requests.post(
+            f"{TURSO_DB_URL}/v2/pipeline",
+            headers=HEADERS,
+            data=json.dumps(payload),
+            timeout=8
+        )
         response.raise_for_status()
-        res = response.json()["results"][0]["response"]["result"]
+        data = response.json()
         
-        if "rows" in res:
-            rows = []
-            for row in res["rows"]:
-                rows.append([col.get("value") for col in row])
-            return rows
+        if "results" in data and len(data["results"]) > 0:
+            res = data["results"][0].get("response", {}).get("result", {})
+            if "rows" in res:
+                rows = []
+                for row in res["rows"]:
+                    rows.append([col.get("value") for col in row])
+                return rows
         return True
-    except Exception as e:
-        st.error(f"Database Query Error: {e}")
+    except Exception as err:
         return []
 
 def init_db():
