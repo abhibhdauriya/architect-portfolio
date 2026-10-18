@@ -18,7 +18,7 @@ try:
 except Exception:
     pass
 
-# Helper to send Email OTP for password reset
+# Helper: Email OTP sender
 def send_reset_email(to_email, otp_code):
     smtp_email = get_secret("SMTP_EMAIL", "")
     smtp_password = get_secret("SMTP_APP_PASSWORD", "")
@@ -69,7 +69,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3D Interactive Three.js Hero
+# 3D Three.js Canvas
 three_html = """
 <!DOCTYPE html>
 <html>
@@ -168,12 +168,12 @@ if view_panel == "Admin Console":
     if "admin_logged_in" not in st.session_state:
         st.session_state.admin_logged_in = False
 
-    # Fetch stored password & email from DB
+    # Fetch stored password & email safely
     pass_res = execute_query("SELECT value FROM settings WHERE key = 'admin_pass'")
-    current_admin_pass = pass_res[0][0] if pass_res else "Abhi#Enterprise2026"
+    current_admin_pass = pass_res[0][0] if (isinstance(pass_res, list) and len(pass_res) > 0) else "Abhi#Enterprise2026"
     
     email_res = execute_query("SELECT value FROM settings WHERE key = 'admin_email'")
-    current_admin_email = email_res[0][0] if email_res else "admin@example.com"
+    current_admin_email = email_res[0][0] if (isinstance(email_res, list) and len(email_res) > 0) else "admin@example.com"
 
     if not st.session_state.admin_logged_in:
         col_login, col_forgot = st.columns([1.2, 1])
@@ -202,7 +202,7 @@ if view_panel == "Admin Console":
                         if success:
                             st.success(msg)
                         else:
-                            st.warning(f"Could not send email automatically: {msg}. (Development Hint: Use OTP: {otp})")
+                            st.warning(f"{msg} (Development OTP: {otp})")
                     else:
                         st.error("Email does not match registered admin email.")
 
@@ -219,7 +219,7 @@ if view_panel == "Admin Console":
                             st.error("Invalid OTP or password too short.")
 
     else:
-        # LOGGED IN ADMIN ACTIONS
+        # Authorized Admin View
         c_head1, c_head2 = st.columns([3, 1])
         c_head1.success("Authorized Admin Session Active")
         if c_head2.button("🚪 Logout", use_container_width=True):
@@ -228,7 +228,7 @@ if view_panel == "Admin Console":
 
         admin_tabs = st.tabs(["➕ Add New Project", "📝 Manage Existing Projects", "🔑 Change Password & Email"])
 
-        # TAB 1: ADD PROJECT
+        # TAB 1: ADD
         with admin_tabs[0]:
             with st.form("add_project_form"):
                 st.markdown("##### 1. Basic Details")
@@ -272,12 +272,12 @@ if view_panel == "Admin Console":
                     st.success(f"Project '{p_title}' added successfully!")
                     st.rerun()
 
-        # TAB 2: MANAGE & EDIT / DELETE PROJECTS
+        # TAB 2: MANAGE
         with admin_tabs[1]:
             st.markdown("##### Existing Database Projects")
             projects = execute_query("SELECT id, title, category, video_url, problem, solution, tech_stack, live_link, github_link, phone_contact FROM projects ORDER BY id DESC")
             
-            if not projects or len(projects) == 0:
+            if not isinstance(projects, list) or len(projects) == 0:
                 st.info("No custom projects in database yet.")
             else:
                 for row in projects:
@@ -312,13 +312,12 @@ if view_panel == "Admin Console":
                                 st.success("Updated successfully!")
                                 st.rerun()
                         
-                        # Delete action outside form to prevent accidental triggers
                         if st.button(f"🗑️ Delete Project #{pid}", key=f"del_{pid}", use_container_width=True):
                             execute_query("DELETE FROM projects WHERE id = ?", [pid])
                             st.warning(f"Project #{pid} deleted.")
                             st.rerun()
 
-        # TAB 3: PASSWORD & SETTINGS
+        # TAB 3: PASSWORD & CREDENTIALS
         with admin_tabs[2]:
             st.markdown("##### 🔐 Update Admin Security Credentials")
             old_p = st.text_input("Current Passkey", type="password")
@@ -341,10 +340,13 @@ if view_panel == "Admin Console":
 else:
     records = []
     try:
-        records = execute_query("SELECT id, title, category, video_url, problem, solution, tech_stack, live_link, github_link, phone_contact, excel_raw_name, excel_raw_data, excel_proc_name, excel_proc_data FROM projects ORDER BY id DESC")
+        raw_rec = execute_query("SELECT id, title, category, video_url, problem, solution, tech_stack, live_link, github_link, phone_contact, excel_raw_name, excel_raw_data, excel_proc_name, excel_proc_data FROM projects ORDER BY id DESC")
+        if isinstance(raw_rec, list):
+            records = raw_rec
     except Exception:
-        pass
+        records = []
 
+    # Safe Fallback
     if not records or len(records) == 0:
         records = [[
             0,
