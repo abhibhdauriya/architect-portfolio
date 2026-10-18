@@ -1,19 +1,30 @@
 import streamlit as st
 import streamlit.components.v1 as components
+import os
 from db import init_db, execute_query
 
+# 1. Clean SEO Meta Tags (Google Search aur Safe Search ke liye)
 st.set_page_config(
-    page_title="Automation & Systems Portfolio",
+    page_title="Abhishek Singh | Automation & Systems Architect",
     page_icon="⚡",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
+    menu_items={
+        'Get Help': 'https://github.com/abhibhdauriya',
+        'About': "Official Portfolio of Abhishek Singh - Shop-Floor Automation, B2B Pipelines & AI Workflows."
+    }
 )
 
-init_db()
+# Safe DB Initialization
+try:
+    init_db()
+except Exception:
+    pass
 
+# Clean CSS (No insecure resources)
 st.markdown("""
 <style>
-    .stApp { background-color: #050811; color: #f1f5f9; }
+    .stApp { background-color: #050811; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     .project-card {
         background: #0f172a;
         border: 1px solid #1e293b;
@@ -41,14 +52,15 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3D Interactive Three.js Canvas
+# Clean, Secure Three.js Canvas (HTTPS CDN strictly compliant)
 three_html = """
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="utf-8">
   <style>
     body { margin: 0; overflow: hidden; background: #050811; }
-    canvas { display: block; width: 100vw; height: 300px; }
+    canvas { display: block; width: 100vw; height: 280px; }
     #tagline {
         position: absolute;
         top: 50%;
@@ -56,28 +68,28 @@ three_html = """
         transform: translate(-50%, -50%);
         text-align: center;
         color: #ffffff;
-        font-family: sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
         pointer-events: none;
     }
-    h1 { margin: 0; font-size: 2rem; font-weight: 800; }
-    p { margin: 6px 0 0; font-size: 0.9rem; color: #818cf8; letter-spacing: 2px; text-transform: uppercase; font-weight: 600; }
+    h1 { margin: 0; font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; }
+    p { margin: 6px 0 0; font-size: 0.88rem; color: #818cf8; letter-spacing: 2px; text-transform: uppercase; font-weight: 600; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
   <div id="tagline">
-    <h1>B2B AUTOMATION & SYSTEMS ARCHITECT</h1>
-    <p>Shop-Floor Dashboards • Excel VBA Engines • AI Workflows</p>
+    <h1>ABHISHEK SINGH</h1>
+    <p>B2B Automation • Shop-Floor Systems • AI Pipelines</p>
   </div>
   <canvas id="canvas"></canvas>
   <script>
     const canvas = document.getElementById('canvas');
     const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
-    renderer.setSize(window.innerWidth, 300);
+    renderer.setSize(window.innerWidth, 280);
     renderer.setPixelRatio(window.devicePixelRatio);
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / 300, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / 280, 0.1, 1000);
     camera.position.z = 20;
 
     const geometry = new THREE.TorusKnotGeometry(6, 1.8, 100, 16);
@@ -98,50 +110,59 @@ three_html = """
     let mouseX = 0, mouseY = 0;
     window.addEventListener('mousemove', (e) => {
         mouseX = (e.clientX - window.innerWidth / 2) * 0.001;
-        mouseY = (e.clientY - 150) * 0.001;
+        mouseY = (e.clientY - 140) * 0.001;
     });
 
     function animate() {
       requestAnimationFrame(animate);
-      mesh.rotation.x += 0.004 + mouseY * 0.03;
-      mesh.rotation.y += 0.006 + mouseX * 0.03;
+      mesh.rotation.x += 0.003 + mouseY * 0.02;
+      mesh.rotation.y += 0.005 + mouseX * 0.02;
       renderer.render(scene, camera);
     }
     animate();
 
     window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / 300;
+      camera.aspect = window.innerWidth / 280;
       camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, 300);
+      renderer.setSize(window.innerWidth, 280);
     });
   </script>
 </body>
 </html>
 """
-components.html(three_html, height=310)
+components.html(three_html, height=290)
 
+# Sidebar
 with st.sidebar:
-    st.header("⚡ System Control")
-    view_panel = st.radio("Select View Mode", ["Portfolio (Public)", "Admin Console"])
+    st.header("⚡ System Navigation")
+    view_panel = st.radio("Navigation Panel", ["Public Portfolio", "Admin Console"])
     st.divider()
     st.markdown("""
-    - ✉️ **Email:** contact@abhisheksingh.dev
-    - 💼 [GitHub Profile](https://github.com)
-    - 📷 [Instagram Portfolio](https://instagram.com)
+    **Direct Channels:**
+    - 💼 [GitHub Profile](https://github.com/abhibhdauriya)
+    - 📷 [Instagram Tech](https://instagram.com)
     - 📺 [YouTube Channel](https://youtube.com)
     """)
 
+# ----------------- ADMIN PANEL -----------------
 if view_panel == "Admin Console":
-    st.subheader("🛡️ Executive Admin Dashboard")
-    entered_key = st.text_input("Enter Admin Security Key", type="password")
-    admin_secret = st.secrets.get("ADMIN_KEY", "Abhi#Enterprise2026")
+    st.subheader("🛡️ Admin Secure Console")
+    admin_pass = st.text_input("Enter Passkey", type="password")
+    
+    # Secure Auth Check
+    expected_key = "Abhi#Enterprise2026"
+    try:
+        if hasattr(st, "secrets") and "ADMIN_KEY" in st.secrets:
+            expected_key = st.secrets["ADMIN_KEY"]
+    except Exception:
+        pass
 
-    if entered_key == admin_secret:
-        st.success("Authenticated Session.")
+    if admin_pass == expected_key:
+        st.success("Access Granted.")
         with st.form("new_project_entry"):
-            col1, col2 = st.columns(2)
-            p_title = col1.text_input("Project / Pipeline Title*")
-            p_cat = col2.selectbox("Industry Category", [
+            c1, c2 = st.columns(2)
+            p_title = c1.text_input("Project / Pipeline Title*")
+            p_cat = c2.selectbox("Industry Category", [
                 "Manufacturing & CNC Tracking",
                 "Excel VBA Offline Systems",
                 "Web Dashboards & Streamlit",
@@ -150,7 +171,7 @@ if view_panel == "Admin Console":
             p_video = st.text_input("Reel / Video Link (YouTube Embed or direct MP4 URL)")
             p_prob = st.text_area("Operational Bottleneck (The Problem)*")
             p_sol = st.text_area("Engineering Fix & Business Impact (The Solution)*")
-            p_tech = st.text_input("Tech Stack Tags (e.g., Python, VBA, Streamlit, Turso)")
+            p_tech = st.text_input("Tech Stack Tags (e.g. Python, VBA, Streamlit, Turso)")
             
             c3, c4 = st.columns(2)
             p_live = c3.text_input("Live Deployed App URL")
@@ -167,24 +188,31 @@ if view_panel == "Admin Console":
                 (title, category, video_url, problem, solution, tech_stack, live_link, github_link, excel_raw_link, excel_proc_link)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, [p_title, p_cat, p_video, p_prob, p_sol, p_tech, p_live, p_git, p_raw, p_proc])
-                st.success(f"Project '{p_title}' added successfully!")
+                st.success(f"Project '{p_title}' committed successfully!")
                 st.rerun()
     else:
-        st.info("Input valid security key to modify database.")
-else:
-    records = execute_query("SELECT id, title, category, video_url, problem, solution, tech_stack, live_link, github_link, excel_raw_link, excel_proc_link FROM projects ORDER BY id DESC")
+        st.info("Enter admin key to modify database.")
 
+# ----------------- USER PUBLIC VIEW -----------------
+else:
+    records = []
+    try:
+        records = execute_query("SELECT id, title, category, video_url, problem, solution, tech_stack, live_link, github_link, excel_raw_link, excel_proc_link FROM projects ORDER BY id DESC")
+    except Exception:
+        pass
+
+    # Clean Fallback Project (Google bots aur users ke liye 100% visible)
     if not records:
         records = [[
-            0,
+            1,
             "Shop-Floor Multi-Machine Visibility Engine (TRD 10X/30X/50X)",
             "Manufacturing & CNC Tracking",
             "",
-            "28 CNC cutting machines faced manual reporting latency of 4 hours per shift and Excel file-locking errors.",
+            "28 CNC cutting machines faced manual reporting latency of 4 hours per shift, Excel file locking, and zero scrap tracking.",
             "Architected a dual-layer system: Local VBA client feeding a centralized SQLite database with automated OEE calculation.",
             "Excel VBA, Python, OpenPyXL, SQLite, Streamlit",
             "https://streamlit.io",
-            "https://github.com",
+            "https://github.com/abhibhdauriya",
             "",
             ""
         ]]
@@ -208,23 +236,25 @@ else:
                         st.video(video)
                     else:
                         st.markdown(f"""
-                        <video width="100%" height="300" controls style="border-radius: 8px; border: 1px solid #1e293b;">
+                        <video width="100%" height="280" controls style="border-radius: 8px; border: 1px solid #1e293b;">
                             <source src="{video}" type="video/mp4">
                         </video>
                         """, unsafe_allow_html=True)
                 else:
                     st.markdown("""
-                    <div style="height: 180px; background: #090d16; border: 1px dashed #334155; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #64748b;">
-                        ⚡ Architecture Showcase
+                    <div style="height: 180px; background: #090d16; border: 1px dashed #334155; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #94a3b8;">
+                        ⚡ Architecture & Systems Pipeline
                     </div>
                     """, unsafe_allow_html=True)
                 
-                st.write("**Data Files:**")
-                dcol1, dcol2 = st.columns(2)
-                if raw_xl:
-                    dcol1.link_button("📥 Raw Excel", raw_xl, use_container_width=True)
-                if proc_xl:
-                    dcol2.link_button("📊 Processed VBA File", proc_xl, use_container_width=True)
+                # Excel Files Section
+                if raw_xl or proc_xl:
+                    st.write("**Data Artifacts:**")
+                    dcol1, dcol2 = st.columns(2)
+                    if raw_xl:
+                        dcol1.link_button("📥 Raw Excel", raw_xl, use_container_width=True)
+                    if proc_xl:
+                        dcol2.link_button("📊 Processed VBA File", proc_xl, use_container_width=True)
 
             with col_desc:
                 st.markdown(f"""
