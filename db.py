@@ -52,30 +52,33 @@ def execute_query(sql: str, params: list = None):
 
     try:
         if not TURSO_AUTH_TOKEN:
-            return []
+            return None, "Turso Auth Token Missing in Secrets."
             
         response = requests.post(
             f"{TURSO_DB_URL}/v2/pipeline",
             headers=HEADERS,
             data=json.dumps(payload),
-            timeout=10
+            timeout=12
         )
         response.raise_for_status()
         data = response.json()
         
         if "results" in data and len(data["results"]) > 0:
-            res = data["results"][0].get("response", {}).get("result", {})
+            first_res = data["results"][0]
+            if "error" in first_res.get("response", {}):
+                return None, first_res["response"]["error"].get("message", "Database Error")
+            
+            res = first_res.get("response", {}).get("result", {})
             if "rows" in res:
                 rows = []
                 for row in res["rows"]:
                     rows.append([col.get("value") for col in row])
-                return rows
-        return []
+                return rows, None
+        return [], None
     except Exception as err:
-        return []
+        return None, str(err)
 
 def init_db():
-    # Projects table
     schema_projects = """
     CREATE TABLE IF NOT EXISTS projects (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,7 +100,20 @@ def init_db():
     """
     execute_query(schema_projects)
 
-    # Global Settings table for Phone, Email, Password, Resume
+    # Auto Migration: Agar columns pehle se nahi hain toh add kar dega
+    cols_to_add = [
+        ("phone_contact", "TEXT"),
+        ("excel_raw_name", "TEXT"),
+        ("excel_raw_data", "TEXT"),
+        ("excel_proc_name", "TEXT"),
+        ("excel_proc_data", "TEXT")
+    ]
+    for col_name, col_type in cols_to_add:
+        try:
+            execute_query(f"ALTER TABLE projects ADD COLUMN {col_name} {col_type};")
+        except Exception:
+            pass
+
     schema_settings = """
     CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
@@ -106,7 +122,7 @@ def init_db():
     """
     execute_query(schema_settings)
 
-    # Initialize defaults
+    # Defaults
     execute_query("INSERT OR IGNORE INTO settings (key, value) VALUES ('admin_pass', 'Abhi#Enterprise2026')")
     execute_query("INSERT OR IGNORE INTO settings (key, value) VALUES ('admin_email', 'singha36161@gmail.com')")
     execute_query("INSERT OR IGNORE INTO settings (key, value) VALUES ('whatsapp_phone', '+918810915344')")
