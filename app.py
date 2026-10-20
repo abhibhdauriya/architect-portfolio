@@ -200,7 +200,7 @@ if view_panel == "Admin Console":
 
         admin_tabs = st.tabs(["➕ Add New Project", "📝 Manage Projects", "📄 Upload Resume", "⚙️ Phone & Security"])
 
-        # TAB 1: ADD PROJECT (No Form Wrapper - Instant Feedback)
+        # TAB 1: ADD PROJECT
         with admin_tabs[0]:
             st.markdown("##### 1. Basic Project Details")
             ca, cb = st.columns(2)
@@ -211,7 +211,7 @@ if view_panel == "Admin Console":
                 "Web Dashboards & Streamlit",
                 "AI Document & Statement Parsing"
             ], key="add_p_cat")
-            p_video = st.text_input("Reel / Video URL (YouTube or MP4 Link)", key="add_p_video")
+            p_video = st.text_input("Reel / Video URL (Instagram Reel, YouTube, or MP4)", key="add_p_video")
             p_prob = st.text_area("The Operational Problem (Bottleneck)*", key="add_p_prob")
             p_sol = st.text_area("The Solution & Business Impact*", key="add_p_sol")
             p_tech = st.text_input("Tech Stack Tags", value="Python, Streamlit, Advanced Excel, ERP (Nexs), Grafana", key="add_p_tech")
@@ -227,7 +227,6 @@ if view_panel == "Admin Console":
             raw_file = cf.file_uploader("Upload Raw Excel", type=["xlsx", "xls", "csv"], key="raw_file_input")
             vba_file = cg.file_uploader("Upload VBA Macro File", type=["xlsm", "xlsx", "xls"], key="vba_file_input")
 
-            # Direct Action Button
             if st.button("🚀 Deploy Project to Turso Cloud DB", use_container_width=True, type="primary"):
                 if not p_title.strip() or not p_prob.strip() or not p_sol.strip():
                     st.error("Kripya Title, Problem aur Solution fill karein.")
@@ -366,13 +365,25 @@ else:
             col_media, col_desc = st.columns([1, 1.2])
 
             with col_media:
-                if video:
-                    if "youtube" in video or "youtu.be" in video:
-                        st.video(video)
+                if video and video.strip():
+                    v_url = video.strip()
+                    # 1. Instagram Reel Embed (Fixes Black Screen CORS Error)
+                    if "instagram.com" in v_url:
+                        clean_insta = v_url.split("?")[0].rstrip("/")
+                        if not clean_insta.endswith("/embed"):
+                            clean_insta = f"{clean_insta}/embed"
+                        components.iframe(clean_insta, height=480, scrolling=False)
+                    
+                    # 2. YouTube Video / Short
+                    elif "youtube.com" in v_url or "youtu.be" in v_url:
+                        st.video(v_url)
+                    
+                    # 3. Direct MP4 Video
                     else:
                         st.markdown(f"""
                         <video width="100%" height="280" controls style="border-radius: 8px; border: 1px solid #1e293b;">
-                            <source src="{video}" type="video/mp4">
+                            <source src="{v_url}" type="video/mp4">
+                            Your browser does not support the video tag.
                         </video>
                         """, unsafe_allow_html=True)
                 else:
@@ -442,6 +453,6 @@ else:
             if not c_name or not c_email or not c_msg:
                 st.error("Kripya saare fields bharein.")
             else:
-                st.toast("Message Recieved!", icon="🚀")
+                st.toast("Message Received!", icon="🚀")
                 st.success(f"Dhanyawad {c_name}! Aapka message receive ho chuka hai.")
         st.markdown('</div>', unsafe_allow_html=True)
